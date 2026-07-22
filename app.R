@@ -1,21 +1,21 @@
 # ══════════════════════════════════════════════════════════════════════════
 # SC WATER QUALITY DATA TOOL
-# S.C. Sea Grant Consortium — SC Water Monitoring Portal (WMP) project
+# Kate Chatman for the S.C. Sea Grant Consortium — SC Water Monitoring Portal (WMP) project
 #
-# Author:   Kate Chatman, S.C. Sea Grant Consortium
 # Purpose:  Replaces the manual EPA Water Quality Portal (WQP) workflow for
 #           the SC WMP. The old process required downloading very large raw
 #           CSVs from the EPA site, trimming 181 raw columns down to 17,
 #           joining station coordinates, assigning parameter categories, and
-#           reformatting for ArcGIS — hours to days of work per update, and
-#           too large for Excel. This app performs the entire
-#           download → clean → categorize → export pipeline in the browser
-#           with no coding required: the user selects a date range and
-#           clicks one button.
+#           reformatting for ArcGIS. Process was hours to days of work per update, and
+#           too large for Excel. Shu-Mei Huang requested a streamlined cleaning code,
+#           several months later this Shiny app was built to simply the process for
+#           non-R code users. This app performs the entire pipeline in the browser
+#           (download → clean → categorize → export) with no coding required. 
 #
 # Data source: EPA Water Quality Portal (https://www.waterqualitydata.us/),
 #           accessed via the WQX 3.0 REST API. Results are pulled for all of
 #           South Carolina (FIPS state code US:45), water media only.
+#           Parameters and QA/QC protocol provided by Shu-Mei Huang at S.C. Sea Grant Consortium.
 #
 # Pipeline overview (see the matching numbered sections below):
 #   [1] Lookup table    — maps EPA CharacteristicName → WMP parameter Category
@@ -39,15 +39,15 @@
 #
 # Change log:
 #   Jul 2026 — Full annotation pass; added "Visit the EPA Water Quality
-#              Portal" link button in the left panel (requested by S. Huang).
+#              Portal" link button in the left panel (requested by Shu-Mei Huang).
 #   May 2026 — Beta release shared with WMP project team.
 # ══════════════════════════════════════════════════════════════════════════
 
 # ── Packages ──
-library(shiny)   # web application framework — UI + reactive server
+library(shiny)   # web application framework — user interface and server (25 hrs free monthly)
 library(httr)    # HTTP client used to call the EPA WQP REST API (GET requests)
-library(readr)   # fast CSV parsing (read_csv) and writing (write_csv)
-library(dplyr)   # data manipulation verbs: mutate, filter, left_join, bind_rows
+library(readr)   # (read_csv) and (write_csv)
+library(dplyr)   # data cleaning verbs: mutate, filter, left_join, bind_rows
 library(bslib)   # Bootstrap theming for Shiny (the "flatly" look and colors)
 library(DT)      # interactive HTML data table used for the 200-row preview
 
@@ -234,9 +234,9 @@ col_map_results <- c(
 # ─────────────────────────────────────────────
 # [3a] HELPER: download one annual chunk of Result data from the WQP
 # ─────────────────────────────────────────────
-# Requests ONE calendar year (or partial year) of SC results. We never ask
-# EPA for the full date range in a single request: pulls beyond ~1 year
-# routinely time out on EPA's side (an early full-range test died at 53 MB).
+# Requests ONE calendar year (or partial year) of SC results. We can't ask
+# EPA for the full date range in a single request. Pulls beyond ~1 year
+# tend to time out on EPA's side and cause an error on the app (my tests died ~53 MB).
 # The server loop in section [7] calls this once per year and stitches the
 # chunks together. Returns a data frame of raw results, or NULL if the year
 # had no data / failed to parse (the caller treats NULL as "skip year").
@@ -268,10 +268,10 @@ download_wqp_chunk <- function(start_date, end_date) {
     error = function(e) stop(paste("Network error:", conditionMessage(e)))
   )
 
-  # Non-200 HTTP status (e.g., 500 from EPA) → stop with the code visible
+  # Non-200 HTTP status (e.g., 500 from EPA) → stop with the code visible if there is an error
   if (http_error(resp)) stop(paste("EPA portal error:", status_code(resp)))
 
-  # Extract the response body as text (a CSV string)
+  # Extract the response body as text (a CSV string) and make a CSV 
   raw_text <- content(resp, as = "text", encoding = "UTF-8")
   # A body under 100 characters is just a header row / empty response —
   # treat as "no data for this year" rather than an error
@@ -280,8 +280,9 @@ download_wqp_chunk <- function(start_date, end_date) {
   # Parse the CSV. Every column is read as character on purpose:
   # read_csv guesses types per chunk, and a column that looks numeric in one
   # year but has text in another would make bind_rows() fail when chunks are
-  # combined. Reading everything as text keeps all years type-consistent;
-  # numeric conversion happens later, only where needed (coordinates).
+  # combined. Reading everything as text keeps all years type-consistent; we know
+  # what type everything is and so we are less likely to have errors,
+  # numeric conversion happens later, only where needed (i.e. coordinates).
   # name_repair = "unique" guards against duplicate raw column names.
   tryCatch(
     read_csv(I(raw_text), col_types = cols(.default = col_character()),
@@ -297,7 +298,8 @@ download_wqp_chunk <- function(start_date, end_date) {
 # (EPA's legacy site ID) — it carries no coordinates. This pulls the separate
 # Station table for all SC monitoring sites so the cleaner (section [5]) can
 # join lat/lon onto every result. Downloaded ONCE per run (site locations
-# don't change year to year), regardless of how many annual chunks run.
+# don't change year to year), regardless of how many annual chunks run. If the site
+# locations ever did change, or you needed to update station locations, it would go here.
 download_stations <- function() {
   resp <- tryCatch(
     # NOTE: this is the legacy "/data/" Station endpoint, not "/wqx3/" —
@@ -363,7 +365,7 @@ build_chunks <- function(start_date, end_date) {
 # ─────────────────────────────────────────────
 # [5] HELPER: clean and trim the raw data
 # ─────────────────────────────────────────────
-# The heart of the pipeline. Takes the combined raw results (all chunks) and
+# This is the bulk of the pipeline and what Shu-Mei asked for first. Takes the combined raw results (all chunks) and
 # the station table, and returns the analysis-ready WMP dataset. Five stages:
 #   (a) trim 181 raw columns → 14, renamed via col_map_results
 #   (b) join station lat/lon by MonitoringLocationIdentifier

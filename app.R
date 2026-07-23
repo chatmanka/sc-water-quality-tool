@@ -1,21 +1,21 @@
 # ══════════════════════════════════════════════════════════════════════════
 # SC WATER QUALITY DATA TOOL
-# S.C. Sea Grant Consortium — SC Water Monitoring Portal (WMP) project
+# Kate Chatman for the S.C. Sea Grant Consortium — SC Water Monitoring Portal (WMP) project
 #
-# Author:   Kate Chatman, S.C. Sea Grant Consortium
 # Purpose:  Replaces the manual EPA Water Quality Portal (WQP) workflow for
 #           the SC WMP. The old process required downloading very large raw
 #           CSVs from the EPA site, trimming 181 raw columns down to 17,
 #           joining station coordinates, assigning parameter categories, and
-#           reformatting for ArcGIS — hours to days of work per update, and
-#           too large for Excel. This app performs the entire
-#           download → clean → categorize → export pipeline in the browser
-#           with no coding required: the user selects a date range and
-#           clicks one button.
+#           reformatting for ArcGIS. Process was hours to days of work per update, and
+#           too large for Excel. Shu-Mei Huang requested a streamlined cleaning code,
+#           several months later this Shiny app was built to simply the process for
+#           non-R code users. This app performs the entire pipeline in the browser
+#           (download → clean → categorize → export) with no coding required. 
 #
 # Data source: EPA Water Quality Portal (https://www.waterqualitydata.us/),
 #           accessed via the WQX 3.0 REST API. Results are pulled for all of
 #           South Carolina (FIPS state code US:45), water media only.
+#           Parameters and QA/QC protocol provided by Shu-Mei Huang at S.C. Sea Grant Consortium.
 #
 # Pipeline overview (see the matching numbered sections below):
 #   [1] Lookup table    — maps EPA CharacteristicName → WMP parameter Category
@@ -24,7 +24,7 @@
 #   [4] Chunk builder   — splits the request into calendar-year pieces
 #   [5] Cleaner         — trim, join coordinates, categorize, QC coordinates
 #   [6] UI              — date pickers, progress bar, summary, preview, export
-#   [7] Server          — wires the pipeline to the UI reactively
+#   [7] Server          — connects pipeline to the user interface, reactively
 #
 # Output:   A cleaned, analysis-ready CSV with the 17 WMP data columns plus
 #           four QC columns (FalseLatitude, FalseLongitude, flag_negLat,
@@ -35,7 +35,7 @@
 #
 # Column names follow WQX 3.0 conventions (not the legacy WMP headers) per
 # project team decision, May 2026 — see WMP_Column_Name_Reference.docx for
-# the six legacy → new renames.
+# the six legacy -> new renames.
 #
 # Deployment: shinyapps.io (https://3ufznw-kate-chatman.shinyapps.io/sc-water-quality-tool/)
 #
@@ -286,8 +286,9 @@ download_wqp_chunk <- function(start_date, end_date) {
   # Parse the CSV. Every column is read as character on purpose:
   # read_csv guesses types per chunk, and a column that looks numeric in one
   # year but has text in another would make bind_rows() fail when chunks are
-  # combined. Reading everything as text keeps all years type-consistent;
-  # numeric conversion happens later, only where needed (coordinates).
+  # combined. Reading everything as text keeps all years type-consistent; we know
+  # what type everything is and so we are less likely to have errors,
+  # numeric conversion happens later, only where needed (i.e. coordinates).
   # name_repair = "unique" guards against duplicate raw column names.
   tryCatch(
     read_csv(I(raw_text), col_types = cols(.default = col_character()),
@@ -303,7 +304,8 @@ download_wqp_chunk <- function(start_date, end_date) {
 # (EPA's legacy site ID) — it carries no coordinates. This pulls the separate
 # Station table for all SC monitoring sites so the cleaner (section [5]) can
 # join lat/lon onto every result. Downloaded ONCE per run (site locations
-# don't change year to year), regardless of how many annual chunks run.
+# don't change year to year), regardless of how many annual chunks run. If the site
+# locations ever did change, or you needed to update station locations, it would go here.
 download_stations <- function() {
   resp <- tryCatch(
     # NOTE: this is the legacy "/data/" Station endpoint, not "/wqx3/" —
@@ -383,8 +385,10 @@ SC_LON_MAX <- -78.0
 # ─────────────────────────────────────────────
 # [5] HELPER: clean and trim the raw data
 # ─────────────────────────────────────────────
-# The heart of the pipeline. Takes the combined raw results (all chunks) and
-# the station table, and returns the analysis-ready WMP dataset. Five stages:
+# This is the bulk of the pipeline and what Shu-Mei asked for first. 
+# Takes the combined raw results (all chunks) and the station table,
+# and returns the analysis-ready WMP dataset.  
+# Five stages:
 #   (a) trim 181 raw columns → 14, renamed via col_map_results
 #   (b) join station lat/lon by MonitoringLocationIdentifier
 #   (c) assign Category from the lookup table

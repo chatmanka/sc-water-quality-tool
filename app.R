@@ -606,6 +606,14 @@ ui <- fluidPage(
         font-size: 1em; width: 100%; border-radius: 6px;
       }
       .btn-download-main:hover { background: #14546e !important; }
+      /* ADDED Jul 2026: primary export style - larger and blue so the
+         common case (get the cleaned data) reads as the main action. */
+      .btn-download-primary {
+        background: #1a6b8a !important; border-color: #14546e !important;
+        color: white !important; font-weight: 700; font-size: 1.08em;
+        padding: 14px 24px; width: 100%; border-radius: 6px;
+      }
+      .btn-download-primary:hover { background: #14546e !important; }
       .btn-export {
         background: #2ecc71 !important; border-color: #27ae60 !important;
         color: white !important; font-weight: 600;
@@ -817,8 +825,30 @@ server <- function(input, output, session) {
       sum(df$flag_coordOutOfRange != "", na.rm = TRUE) else 0
     
     tagList(
-      downloadButton("download_csv", "⬇ Download Cleaned CSV",
-                     class = "btn btn-success btn-export", style = "width:100%; margin-bottom:10px;"),
+      # PRIMARY EXPORT (redesigned Jul 2026): the complete cleaned table.
+      downloadButton("download_csv", "🌊 Download Cleaned CSV",
+                     class = "btn btn-download-primary", style = "margin-bottom:6px;"),
+      p(class = "info-note", style = "margin-top:0; margin-bottom:14px;",
+        "The complete cleaned table: 17 WMP data columns plus three QC columns ",
+        "(FalseLatitude, FalseLongitude, and the coordinate flags). Corrected ",
+        "coordinates are already applied. Includes every record retrieved, ",
+        "including any still flagged as unresolved below."),
+
+      # SECOND EXPORT (added Jul 2026): identical format with the unresolved-
+      # coordinate records removed. Shown only when such records exist -
+      # otherwise the two files are identical and the choice is meaningless.
+      if (n_range_flags > 0) tagList(
+        downloadButton("download_clear",
+                       paste0("Download Verified Locations Only (",
+                              format(nrow(df) - n_range_flags, big.mark = ","),
+                              " records)"),
+                       class = "btn btn-success btn-export",
+                       style = "width:100%; margin-bottom:6px;"),
+        p(class = "info-note", style = "margin-top:0; margin-bottom:14px;",
+          "The same 17-column table with the unresolved-coordinate records ",
+          "removed, so every point maps to a verified South Carolina location. ",
+          "Use this for analysis, mapping, and workshops.")
+      ),
       if (n_flags > 0) tagList(
         downloadButton("download_flags", 
                        paste0("⚠ Download Coordinate Flag Report (", format(n_flags, big.mark=","), " records)"),
@@ -856,6 +886,24 @@ server <- function(input, output, session) {
              format(input$end_date,   "%Y"), "_cleaned.csv")
     },
     content = function(file) write_csv(cleaned_data(), file, na = "")
+  )
+
+  # -- Download handler: verified-locations-only CSV --
+  # ADDED Jul 2026. The cleaned table minus any record that failed the
+  # post-correction SC bounds check (section [5f]). Identical columns to the
+  # full export; the only difference is which rows are present.
+  output$download_clear <- downloadHandler(
+    filename = function() {
+      paste0("SC_WaterQuality_",
+             format(input$start_date, "%Y"), "_to_",
+             format(input$end_date,   "%Y"), "_verified_locations.csv")
+    },
+    content = function(file) {
+      df <- cleaned_data()
+      if ("flag_coordOutOfRange" %in% names(df))
+        df <- df[is.na(df$flag_coordOutOfRange) | df$flag_coordOutOfRange == "", , drop = FALSE]
+      write_csv(df, file, na = "")
+    }
   )
 
   # ── Download handler: coordinate flag report ──

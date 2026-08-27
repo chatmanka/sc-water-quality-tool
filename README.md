@@ -19,20 +19,23 @@ This tool performs the entire **download → clean → categorize → export** p
 - **Parameter categorization** — assigns each record to one of 8 WMP display categories using the project's parameter lookup table (embedded in the app)
 - **Coordinate QC** — detects records with flipped latitude/longitude (a known EPA data quality issue), corrects them automatically, preserves the original values, and generates a flag report formatted for submission to WQX@epa.gov
 - **Coordinate validation** — after correcting flipped coordinates, independently checks that the *result* actually falls within South Carolina's real geographic bounds. Records that still look implausible even after correction (a different, unresolved data error) are flagged separately and excluded from the EPA-ready report, so they can't be mistaken for a verified fix
-- **One-click export** — cleaned CSV named by date range, with blank cells instead of "NA" for Excel/ArcGIS compatibility
+- **Two export options** — the full cleaned CSV, or an analysis copy with unresolved-coordinate records removed so every point maps to a verified South Carolina location. Both are named by date range, with blank cells instead of "NA" for Excel/ArcGIS compatibility
 - **Link to source** — a button back to the original EPA Water Quality Portal for other states, additional data profiles, or advanced queries
 
 ## Using the tool
 
-1. Open the [live app][(https://3ufznw-kate-chatman.shinyapps.io/sc-water-quality-tool/)]
+1. Open the [live app](https://3ufznw-kate-chatman.shinyapps.io/SCWaterQualityPortalTool/)
 2. Select a start and end date. **Try one year first** — a single-year pull completes in about a minute. A full 2000–present pull runs ~26 annual chunks and may take 20–40 minutes.
 3. Click **Download & Clean Data** and watch the progress bar
 4. Review the summary statistics and 200-row preview
-5. Click **Download Cleaned CSV** to export
-6. If flipped-coordinate records were found, an orange button offers the **Coordinate Flag Report** — email this file to [WQX@epa.gov](mailto:WQX@epa.gov) to report the errors upstream
-7. If any records still look geographically implausible *after* correction, a red button offers a separate **Unresolved Coordinate Report** — these need manual review before reporting to EPA, since a simple swap didn't resolve them (see Technical notes below)
+5. Click the blue **Download Cleaned CSV** to export everything retrieved
+6. If any records could not be resolved to a valid South Carolina location, a green **Download Verified Locations Only** button also appears — the same table with those records removed. Use it for analysis, mapping, and workshops
+7. If flipped-coordinate records were found, an orange button offers the **Coordinate Flag Report** — email this file to [WQX@epa.gov](mailto:WQX@epa.gov) to report the errors upstream
+8. If any records still look geographically implausible *after* correction, a red button offers a separate **Unresolved Coordinate Report** — these need manual review before reporting to EPA, since a simple swap didn't resolve them (see Technical notes below)
 
-For reference, a full January 2000 – May 2026 pull returns ~1.37 million cleaned records (~263 MB CSV). A 2024 test pull (53,694 records) found 1,851 flipped-coordinate records across 118 sites that were successfully corrected, and 41 records across 4 sites that remain unresolved.
+The orange and green buttons appear only when the relevant records exist in your pull. If a run finds no flipped coordinates there is nothing to report, so no orange button; if it finds no unresolved coordinates the two CSVs would be identical, so only the blue button shows.
+
+For reference, a full January 2000 – May 2026 pull returns ~1.37 million cleaned records (~263 MB CSV). A 2024 test pull in August 2026 returned 86,761 cleaned records, of which 80 could not be resolved to a valid South Carolina location; the verified-locations export therefore contains 86,681 records. The same 2024 pull in July 2026 had returned 53,694 records including 1,851 flipped-coordinate records across 118 sites. Those flipped records were reported to WQX@epa.gov and no longer appear in the source data, so recent pulls produce no coordinate flag report at all.
 
 ## Output columns
 
@@ -66,6 +69,7 @@ Column names follow EPA's **WQX 3.0** conventions rather than the legacy WMP hea
 ## Repository contents
 
 - `app.R` — the complete application (UI + server + cleaning pipeline), fully annotated section by section
+- `README.md` — this file
 - `LICENSE` — MIT license
 
 The app is self-contained: the parameter category lookup table and column mapping are embedded in `app.R`, so no external data files are required to run or deploy it.
@@ -76,7 +80,7 @@ Requires R with the following packages: `shiny`, `httr`, `readr`, `dplyr`, `bsli
 
 ```r
 install.packages(c("shiny", "httr", "readr", "dplyr", "bslib", "DT"))
-shiny::runApp("app.R")
+shiny::runApp()          # from inside the project directory
 ```
 
 ## Technical notes

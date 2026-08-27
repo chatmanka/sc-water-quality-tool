@@ -2,7 +2,7 @@
 
 A browser-based Shiny application that automates retrieval, cleaning, and export of South Carolina water quality data from the EPA Water Quality Portal (WQP). Built for the **SC Water Monitoring Portal (WMP)**, a project of the [S.C. Sea Grant Consortium](https://www.scseagrant.org/).
 
-**Live app:** https://3ufznw-kate-chatman.shinyapps.io/sc-water-quality-tool/
+**Live app:** https://3ufznw-kate-chatman.shinyapps.io/SCWaterQualityPortalTool/
 
 ## The problem this solves
 
@@ -24,7 +24,7 @@ This tool performs the entire **download → clean → categorize → export** p
 
 ## Using the tool
 
-1. Open the [live app][(https://3ufznw-kate-chatman.shinyapps.io/sc-water-quality-tool/](https://3ufznw-kate-chatman.shinyapps.io/SCWaterQualityPortalTool/)
+1. Open the [live app][(https://3ufznw-kate-chatman.shinyapps.io/sc-water-quality-tool/)]
 2. Select a start and end date. **Try one year first** — a single-year pull completes in about a minute. A full 2000–present pull runs ~26 annual chunks and may take 20–40 minutes.
 3. Click **Download & Clean Data** and watch the progress bar
 4. Review the summary statistics and 200-row preview
